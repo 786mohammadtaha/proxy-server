@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proxy Server Dashboard</title>
+</head>
+<body>
+    <h1>Proxy Server Dashboard</h1>
+
+    <h2>Analytics</h2>
+    <p>Total connections: <span id="totalConnections">0</span></p>
+    <p>Active connections: <span id="activeConnectionsCount">0</span></p>
+    <p>Allowed connections: <span id="allowedConnections">0</span></p>
+    <p>Blocked connections: <span id="blockedConnectionsCount">0</span></p>
+    <p>Completed connections: <span id="completedConnectionsCount">0</span></p>
+    <p>Failed connections: <span id="failedConnectionsCount">0</span></p>
+    <p>Total data sent: <span id="totalDataSent">0</span> bytes</p>
+    <p>Total data received: <span id="totalDataReceived">0</span> bytes</p>
+    <p>Number of blocked domains: <span id="blockedDomainsCount">0</span></p>
+
+    <h2>Blocked Domains</h2>
+    <ul id="blockedDomainsList"></ul>
+
+    <h2>Block Domain</h2>
+    <div>
+        <input
+            type="text"
+            id="blockDomainInput"
+            placeholder="Enter domain"
+        >
+        <button id="blockDomainButton">Block</button>
+    </div>
+    <p id="blockResult"></p>
+
+    <h2>Allow Domain</h2>
+    <div>
+        <input
+            type="text"
+            id="allowDomainInput"
+            placeholder="Enter domain"
+        >
+        <button id="allowDomainButton">Allow</button>
+    </div>
+    <p id="allowResult"></p>
+
+    <h2>Active Connections</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Website</th>
+                <th>IP Address</th>
+                <th>Connection ID</th>
+                <th>Start Time</th>
+                <th>Data Sent</th>
+                <th>Data Received</th>
+            </tr>
+        </thead>
+        <tbody id="activeConnectionsTable"></tbody>
+    </table>
+
+    <h2>Completed Connections</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Website</th>
+                <th>IP Address</th>
+                <th>Connection ID</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Duration</th>
+                <th>Data Sent</th>
+                <th>Data Received</th>
+            </tr>
+        </thead>
+        <tbody id="completedConnectionsTable"></tbody>
+    </table>
+
+    <h2>Failed Connections</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Website</th>
+                <th>IP Address</th>
+                <th>Connection ID</th>
+                <th>Start Time</th>
+            </tr>
+        </thead>
+        <tbody id="failedConnectionsTable"></tbody>
+    </table>
+
+    <h2>Blocked Connections</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Website</th>
+                <th>IP Address</th>
+                <th>Connection ID</th>
+                <th>Start Time</th>
+            </tr>
+        </thead>
+        <tbody id="blockedConnectionsTable"></tbody>
+    </table>
+
+    <script>
+        async function fetchJson(endpoint) {
+            const response = await fetch(endpoint);
+
+            if (!response.ok) {
+                throw new Error("Request failed");
+            }
+
+            return response.json();
+        }
+
+        function setText(elementId, value) {
+            document.getElementById(elementId).textContent = value;
+        }
+
+        function createTableCell(value) {
+            const cell = document.createElement("td");
+            cell.textContent = value ?? "";
+            return cell;
+        }
+
+        function addTableRow(tableBody, values) {
+            const row = document.createElement("tr");
+
+            values.forEach((value) => {
+                row.appendChild(createTableCell(value));
+            });
+
+            tableBody.appendChild(row);
+        }
+
+        function formatTime(value) {
+            if (!value) {
+                return "";
+            }
+
+            return new Date(value).toLocaleString();
+        }
+
+        function formatDuration(value) {
+            if (value === null || value === undefined) {
+                return "";
+            }
+
+            return `${value} ms`;
+        }
+
+        function displayAnalytics(analytics) {
+            setText("totalConnections", analytics.totalConnections);
+            setText(
+                "activeConnectionsCount",
+                analytics.activeConnections
+            );
+            setText("allowedConnections", analytics.allowedConnections);
+            setText(
+                "blockedConnectionsCount",
+                analytics.blockedConnections
+            );
+            setText(
+                "completedConnectionsCount",
+                analytics.completedConnections
+            );
+            setText(
+                "failedConnectionsCount",
+                analytics.failedConnections
+            );
+            setText("totalDataSent", analytics.totalDataSent);
+            setText("totalDataReceived", analytics.totalDataReceived);
+            setText("blockedDomainsCount", analytics.blockedDomains);
+        }
+
+        function displayBlockedDomains(domains) {
+            const list = document.getElementById("blockedDomainsList");
+            list.replaceChildren();
+
+            domains.forEach((domain) => {
+                const item = document.createElement("li");
+                item.textContent = domain;
+                list.appendChild(item);
+            });
+        }
+
+        function displayActiveConnections(connections) {
+            const tableBody =
+                document.getElementById("activeConnectionsTable");
+
+            tableBody.replaceChildren();
+
+            connections.forEach((connection) => {
+                addTableRow(tableBody, [
+                    connection.website,
+                    connection.ipAddress,
+                    connection.connectionId,
+                    formatTime(connection.startTime),
+                    connection.dataSent,
+                    connection.dataReceived
+                ]);
+            });
+        }
+
+        function displayCompletedConnections(connections) {
+            const tableBody =
+                document.getElementById("completedConnectionsTable");
+
+            tableBody.replaceChildren();
+
+            connections.forEach((connection) => {
+                addTableRow(tableBody, [
+                    connection.website,
+                    connection.ipAddress,
+                    connection.connectionId,
+                    formatTime(connection.startTime),
+                    formatTime(connection.endTime),
+                    formatDuration(connection.duration),
+                    connection.dataSent,
+                    connection.dataReceived
+                ]);
+            });
+        }
+
+        function displayFailedConnections(connections) {
+            const tableBody =
+                document.getElementById("failedConnectionsTable");
+
+            tableBody.replaceChildren();
+
+            connections.forEach((connection) => {
+                addTableRow(tableBody, [
+                    connection.website,
+                    connection.ipAddress,
+                    connection.connectionId,
+                    formatTime(connection.startTime)
+                ]);
+            });
+        }
+
+        function displayBlockedConnections(connections) {
+            const tableBody =
+                document.getElementById("blockedConnectionsTable");
+
+            tableBody.replaceChildren();
+
+            connections.forEach((connection) => {
+                addTableRow(tableBody, [
+                    connection.website,
+                    connection.ipAddress,
+                    connection.connectionId,
+                    formatTime(connection.startTime)
+                ]);
+            });
+        }
+
+        async function refreshDashboard() {
+            try {
+                const [
+                    analytics,
+                    blocklist,
+                    activeConnections,
+                    completedConnections,
+                    failedConnections,
+                    blockedConnections
+                ] = await Promise.all([
+                    fetchJson("/api/analytics"),
+                    fetchJson("/api/blocklist"),
+                    fetchJson("/api/active-connections"),
+                    fetchJson("/api/completed-connections"),
+                    fetchJson("/api/failed-connections"),
+                    fetchJson("/api/blocked-connections")
+                ]);
+
+                displayAnalytics(analytics);
+                displayBlockedDomains(blocklist.blockedDomains);
+                displayActiveConnections(activeConnections);
+                displayCompletedConnections(completedConnections);
+                displayFailedConnections(failedConnections);
+                displayBlockedConnections(blockedConnections);
+            } catch (error) {
+                console.error("Unable to refresh dashboard:", error);
+            }
+        }
+
+        async function updateDomain(endpoint, inputId, resultId) {
+            const input = document.getElementById(inputId);
+            const result = document.getElementById(resultId);
+            const domain = input.value.trim();
+
+            if (!domain) {
+                result.textContent = "Please enter a domain";
+                return;
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ domain })
+                });
+
+                const resultData = await response.json();
+
+                result.textContent = resultData.message;
+
+                if (resultData.success) {
+                    input.value = "";
+                    await refreshDashboard();
+                }
+            } catch (error) {
+                result.textContent = "Request failed";
+            }
+        }
+
+        document
+            .getElementById("blockDomainButton")
+            .addEventListener("click", () => {
+                updateDomain(
+                    "/api/block",
+                    "blockDomainInput",
+                    "blockResult"
+                );
+            });
+
+        document
+            .getElementById("allowDomainButton")
+            .addEventListener("click", () => {
+                updateDomain(
+                    "/api/allow",
+                    "allowDomainInput",
+                    "allowResult"
+                );
+            });
+
+        refreshDashboard();
+        setInterval(refreshDashboard, 2000);
+    </script>
+</body>
+</html>
